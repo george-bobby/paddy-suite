@@ -3,7 +3,7 @@ train_irrigation.py — Module 3: Paddy Irrigation Prediction
 Binary classification: does paddy need irrigation? (0=No, 1=Yes)
 
 Run:  python train_irrigation.py
-Skip: Automatically skipped if saved_models/irrigation/model.pkl already exists.
+Skip: Automatically skipped if models/irrigation/model.pkl already exists.
 """
 
 import os
@@ -23,7 +23,10 @@ from sklearn.model_selection import (train_test_split, StratifiedKFold,
 from sklearn.metrics import (accuracy_score, f1_score, roc_auc_score,
                                classification_report)
 import xgboost as xgb
-import lightgbm as lgb
+try:
+    import lightgbm as lgb
+except Exception:
+    lgb = None
 
 import config
 
@@ -98,7 +101,7 @@ def train():
     os.makedirs(config.MODEL_DIR_IRR, exist_ok=True)
 
     if os.path.exists(config.IRR_MODEL_PATH):
-        print('⏭️  Irrigation model already trained — skipping. Delete saved_models/irrigation/ to retrain.')
+        print('⏭️  Irrigation model already trained — skipping. Delete models/irrigation/ to retrain.')
         return
 
     print('\n' + '='*60)
@@ -142,8 +145,12 @@ def train():
         'SVM'                : SVC(probability=True, kernel='rbf', random_state=42),
         'XGBoost'            : xgb.XGBClassifier(n_estimators=100, random_state=42,
                                                    eval_metric='logloss', verbosity=0),
-        'LightGBM'           : lgb.LGBMClassifier(n_estimators=100, random_state=42, verbose=-1),
     }
+
+    if config.ENABLE_LIGHTGBM and lgb is not None:
+        models['LightGBM'] = lgb.LGBMClassifier(n_estimators=100, random_state=42, verbose=-1)
+    else:
+        print('  ℹ️ LightGBM disabled for this environment (set ENABLE_LIGHTGBM=1 to force-enable).')
 
     # 5. Train & compare
     print(f'\n  {"Model":<25} {"CV Acc":>10} {"Test Acc":>10} {"F1":>8} {"AUC":>8}')

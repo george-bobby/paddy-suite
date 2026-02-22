@@ -3,7 +3,7 @@ train_fertilizer.py — Module 4: Rice Fertilizer Recommendation
 Multi-class classification with realistic noise injection.
 
 Run:  python train_fertilizer.py
-Skip: Automatically skipped if saved_models/fertilizer/model.pkl already exists.
+Skip: Automatically skipped if models/fertilizer/model.pkl already exists.
 """
 
 import os
@@ -79,7 +79,7 @@ def train():
     os.makedirs(config.MODEL_DIR_FERT, exist_ok=True)
 
     if os.path.exists(config.FERT_MODEL_PATH):
-        print('⏭️  Fertilizer model already trained — skipping. Delete saved_models/fertilizer/ to retrain.')
+        print('⏭️  Fertilizer model already trained — skipping. Delete models/fertilizer/ to retrain.')
         return
 
     print('\n' + '='*60)

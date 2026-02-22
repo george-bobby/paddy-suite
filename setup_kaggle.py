@@ -9,20 +9,39 @@ import config
 
 
 def setup_kaggle():
-    """Write Kaggle credentials to ~/.kaggle/kaggle.json and set env vars."""
+    """Write Kaggle credentials to ~/.kaggle/kaggle.json and set env vars.
+    
+    Validates credentials are present and properly formatted before writing.
+    Raises clear error messages if credentials are missing.
+    """
+    # Convert lazy credentials to strings (will raise if missing)
+    kaggle_username = str(config.KAGGLE_USERNAME)
+    kaggle_key = str(config.KAGGLE_KEY)
+    
     kaggle_home = Path.home() / '.kaggle'
     kaggle_home.mkdir(exist_ok=True)
     cred_file   = kaggle_home / 'kaggle.json'
 
-    creds = {"username": config.KAGGLE_USERNAME, "key": config.KAGGLE_KEY}
-    with open(cred_file, 'w') as f:
-        json.dump(creds, f)
-    os.chmod(str(cred_file), 0o600)
+    creds = {"username": kaggle_username, "key": kaggle_key}
+    
+    try:
+        with open(cred_file, 'w') as f:
+            json.dump(creds, f)
+        os.chmod(str(cred_file), 0o600)
+    except Exception as e:
+        raise RuntimeError(f"Failed to write Kaggle credentials to {cred_file}: {e}")
 
-    os.environ['KAGGLE_USERNAME']  = config.KAGGLE_USERNAME
-    os.environ['KAGGLE_KEY']       = config.KAGGLE_KEY
-    os.environ['KAGGLE_API_TOKEN'] = config.KAGGLE_KEY
+    # Set environment variables for kaggle API
+    os.environ['KAGGLE_USERNAME']  = kaggle_username
+    os.environ['KAGGLE_KEY']       = kaggle_key
+    os.environ['KAGGLE_API_TOKEN'] = kaggle_key
 
-    import kaggle
-    kaggle.KaggleApi().authenticate()
-    print("✅ Kaggle API authenticated.")
+    try:
+        import kaggle
+        kaggle.KaggleApi().authenticate()
+        print("✅ Kaggle API authenticated.")
+    except Exception as e:
+        raise RuntimeError(
+            f"Kaggle authentication failed: {e}\n"
+            f"Please verify your credentials at https://www.kaggle.com/settings/account"
+        )

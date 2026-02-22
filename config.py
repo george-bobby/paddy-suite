@@ -4,6 +4,7 @@ All paths, seeds, and constants live here.
 """
 import os
 import random
+import platform
 import numpy as np
 import torch
 
@@ -18,25 +19,37 @@ torch.cuda.manual_seed_all(SEED)
 # ── Device ───────────────────────────────────────────────────────────────────
 DEVICE = 'cuda' if torch.cuda.is_available() else 'cpu'
 
+# ── Runtime compatibility toggles ───────────────────────────────────────────
+IS_MACOS = platform.system() == 'Darwin'
+ENABLE_LIGHTGBM = os.environ.get('ENABLE_LIGHTGBM', '0' if IS_MACOS else '1') == '1'
+DISEASE_USE_PRETRAINED = os.environ.get(
+    'DISEASE_USE_PRETRAINED',
+    '0' if (IS_MACOS and DEVICE == 'cpu') else '1'
+) == '1'
+DISEASE_DATALOADER_WORKERS = int(os.environ.get('DISEASE_DATALOADER_WORKERS', '0' if IS_MACOS else '2'))
+DISEASE_PIN_MEMORY = os.environ.get('DISEASE_PIN_MEMORY', '1' if DEVICE == 'cuda' else '0') == '1'
+DISEASE_PROGRESS_EVERY = int(os.environ.get('DISEASE_PROGRESS_EVERY', '10'))
+DISEASE_FAST_MODE = os.environ.get('DISEASE_FAST_MODE', '1' if DEVICE == 'cpu' else '0') == '1'
+
 # ── Paths — Data ─────────────────────────────────────────────────────────────
-YIELD_DATA_DIR    = './crop_data'
+YIELD_DATA_DIR    = './datasets/yield'
 YIELD_CSV         = f'{YIELD_DATA_DIR}/paddydataset.csv'
 
-DISEASE_DATA_DIR  = './paddy_data'
+DISEASE_DATA_DIR  = './datasets/disease'
 DISEASE_TRAIN_DIR = f'{DISEASE_DATA_DIR}/train_images'
 DISEASE_TEST_DIR  = f'{DISEASE_DATA_DIR}/test_images'
 DISEASE_CSV       = f'{DISEASE_DATA_DIR}/train.csv'
 
-IRR_DATA_DIR      = './data'
+IRR_DATA_DIR      = './datasets/irrigation'
 IRR_CSV           = f'{IRR_DATA_DIR}/datasets_-_datasets.csv'
 
-FERT_DATA_DIR     = './rice_fertilizer_data'
+FERT_DATA_DIR     = './datasets/fertilizer'
 
 # ── Paths — Models ────────────────────────────────────────────────────────────
-MODEL_DIR_YIELD      = './saved_models/yield'
-MODEL_DIR_DISEASE    = './saved_models/disease'
-MODEL_DIR_IRR        = './saved_models/irrigation'
-MODEL_DIR_FERT       = './saved_models/fertilizer'
+MODEL_DIR_YIELD      = './models/yield'
+MODEL_DIR_DISEASE    = './models/disease'
+MODEL_DIR_IRR        = './models/irrigation'
+MODEL_DIR_FERT       = './models/fertilizer'
 
 YIELD_MODEL_PATH     = f'{MODEL_DIR_YIELD}/model.pkl'
 YIELD_SCALER_PATH    = f'{MODEL_DIR_YIELD}/scaler.pkl'
@@ -72,9 +85,45 @@ IMG_STD  = [0.229, 0.224, 0.225]
 IMG1, BS1, EPOCHS1, LR1 = 224, 64, 6, 3e-4   # Stage 1
 IMG2, BS2, EPOCHS2, LR2 = 320, 64, 3, 5e-5   # Stage 2
 
-# ── Kaggle credentials — EDIT these or set env vars KAGGLE_USERNAME / KAGGLE_KEY
-KAGGLE_USERNAME = os.environ.get('KAGGLE_USERNAME', 'deonasaji')
-KAGGLE_KEY      = os.environ.get('KAGGLE_KEY',      'KGAT_e48eb4132db7726c40438655aa2c2cf4')
+# ── API Credentials (REQUIRED) ───────────────────────────────────────────────
+# All credentials MUST be set via environment variables or .env file
+# See .env.example for template
+# Get Kaggle API key: https://www.kaggle.com/settings/account
+# Get Gemini API key: https://makersuite.google.com/app/apikey
 
-# ── Gemini API key — EDIT or set env var GEMINI_API_KEY
-GEMINI_API_KEY = os.environ.get('GEMINI_API_KEY', 'AIzaSyDr3j6meyCxNCHbYZqnnbwxMrv8BFZ48xc')
+class _LazyCredential:
+    """Lazy credential loader - only validates when first accessed."""
+    def __init__(self, key: str, description: str, required: bool = True):
+        self.key = key
+        self.description = description
+        self.required = required
+        self._value = None
+        self._loaded = False
+    
+    def __str__(self) -> str:
+        """Access credential value (validates on first access if required)."""
+        if not self._loaded:
+            self._value = os.environ.get(self.key)
+            if not self._value and self.required:
+                raise ValueError(
+                    f"\n{'='*70}\n"
+                    f"❌ MISSING REQUIRED CREDENTIAL: {self.key}\n"
+                    f"   {self.description}\n\n"
+                    f"   Setup Instructions:\n"
+                    f"   1. Copy .env.example to .env\n"
+                    f"   2. Fill in your {self.key}\n"
+                    f"   3. Load environment: export $(cat .env | xargs)\n\n"
+                    f"   Or set directly: export {self.key}='your_value'\n"
+                    f"{'='*70}"
+                )
+            self._loaded = True
+        return self._value if self._value else ''
+    
+    def __bool__(self) -> bool:
+        """Check if credential is set."""
+        return bool(str(self))
+
+# Lazy credential loading - only validates when accessed
+KAGGLE_USERNAME = _LazyCredential('KAGGLE_USERNAME', 'Your Kaggle username', required=True)
+KAGGLE_KEY      = _LazyCredential('KAGGLE_KEY', 'Your Kaggle API key', required=True)
+GEMINI_API_KEY  = _LazyCredential('GEMINI_API_KEY', 'Your Google Gemini API key (optional for AI tips)', required=False)

@@ -3,7 +3,7 @@ train_yield.py — Module 1: Paddy Crop Yield Prediction
 Trains an XGBoost/LightGBM/RandomForest regressor with Optuna tuning.
 
 Run:  python train_yield.py
-Skip: Automatically skipped if saved_models/yield/model.pkl already exists.
+Skip: Automatically skipped if models/yield/model.pkl already exists.
 """
 
 import os
@@ -14,7 +14,10 @@ import pandas as pd
 import joblib
 import optuna
 import xgboost as xgb
-import lightgbm as lgb
+try:
+    import lightgbm as lgb
+except Exception:
+    lgb = None
 from sklearn.ensemble import RandomForestRegressor, GradientBoostingRegressor
 from sklearn.linear_model import Ridge
 from sklearn.preprocessing import StandardScaler, LabelEncoder
@@ -23,6 +26,8 @@ from sklearn.metrics import r2_score, mean_absolute_error, mean_squared_error
 from pathlib import Path
 
 import config
+from src.data import DatasetManager
+from src.utils import ModelArtifacts
 
 warnings.filterwarnings('ignore')
 optuna.logging.set_verbosity(optuna.logging.WARNING)
@@ -31,17 +36,13 @@ optuna.logging.set_verbosity(optuna.logging.WARNING)
 # ─────────────────────────── helpers ─────────────────────────────────────────
 
 def _download_dataset():
-    """Download yield dataset from Kaggle (only if missing)."""
-    if os.path.exists(config.YIELD_CSV):
-        print(f'  ✅ Yield dataset already exists: {config.YIELD_CSV}')
-        return
-    print('  📥 Downloading yield dataset...')
-    import kaggle
-    kaggle.api.dataset_download_files(
-        'stealthtechnologies/predict-crop-production',
-        path=config.YIELD_DATA_DIR, unzip=True
+    """Download yield dataset from Kaggle using DatasetManager."""
+    dataset_manager = DatasetManager()
+    dataset_manager.download_kaggle_dataset(
+        dataset='stealthtechnologies/predict-crop-production',
+        output_dir=config.YIELD_DATA_DIR,
+        expected_file='paddydataset.csv'
     )
-    print('  ✅ Yield dataset downloaded!')
 
 
 def _feature_engineering(df):
@@ -96,7 +97,7 @@ def _optuna_objective(trial, best_name, Xtr, ytr):
             colsample_bytree = trial.suggest_float('colsample_bytree', 0.6, 1.0),
         )
         mdl = xgb.XGBRegressor(**params, random_state=config.RANDOM_STATE, n_jobs=-1, verbosity=0)
-    elif 'LightGBM' in best_name:
+    elif 'LightGBM' in best_name and lgb is not None:
         params = dict(
             n_estimators  = trial.suggest_int('n_estimators', 200, 800),
             learning_rate = trial.suggest_float('learning_rate', 0.01, 0.2, log=True),
@@ -120,7 +121,7 @@ def train():
     os.makedirs(config.MODEL_DIR_YIELD, exist_ok=True)
 
     if os.path.exists(config.YIELD_MODEL_PATH):
-        print('⏭️  Yield model already trained — skipping. Delete saved_models/yield/ to retrain.')
+        print('⏭️  Yield model already trained — skipping. Delete models/yield/ to retrain.')
         return
 
     print('\n' + '='*60)
@@ -156,11 +157,21 @@ def train():
         'XGBoost'       : xgb.XGBRegressor(n_estimators=500, learning_rate=0.05, max_depth=6,
                               subsample=0.8, colsample_bytree=0.8,
                               random_state=config.RANDOM_STATE, n_jobs=-1, verbosity=0),
-        'LightGBM'      : lgb.LGBMRegressor(n_estimators=500, learning_rate=0.05, num_leaves=63,
-                              random_state=config.RANDOM_STATE, n_jobs=-1, verbose=-1),
     }
 
-    print('\n  Training 5 models...')
+    if config.ENABLE_LIGHTGBM and lgb is not None:
+        model_zoo['LightGBM'] = lgb.LGBMRegressor(
+            n_estimators=500,
+            learning_rate=0.05,
+            num_leaves=63,
+            random_state=config.RANDOM_STATE,
+            n_jobs=-1,
+            verbose=-1,
+        )
+    else:
+        print('  ℹ️ LightGBM disabled for this environment (set ENABLE_LIGHTGBM=1 to force-enable).')
+
+    print(f'\n  Training {len(model_zoo)} models...')
     results = []
     for name, mdl in model_zoo.items():
         res = _evaluate(mdl, X_tr_sc, X_te_sc, y_tr, y_te, name)
@@ -184,7 +195,7 @@ def train():
     if 'XGBoost' in best_name:
         best_p.update({'random_state': config.RANDOM_STATE, 'n_jobs': -1, 'verbosity': 0})
         final_model = xgb.XGBRegressor(**best_p)
-    elif 'LightGBM' in best_name:
+    elif 'LightGBM' in best_name and lgb is not None:
         best_p.update({'random_state': config.RANDOM_STATE, 'n_jobs': -1, 'verbose': -1})
         final_model = lgb.LGBMRegressor(**best_p)
     else:
@@ -198,14 +209,29 @@ def train():
     rmse = np.sqrt(mean_squared_error(y_te, y_pred))
     print(f'\n  Final — R²: {r2:.4f} | MAE: {mae:,.1f} Kg | RMSE: {rmse:,.1f} Kg')
 
-    # 7. Save
-    joblib.dump(final_model,    config.YIELD_MODEL_PATH)
-    joblib.dump(scaler,         config.YIELD_SCALER_PATH)
-    joblib.dump(label_encoders, config.YIELD_ENCODERS_PATH)
-    joblib.dump(config.YIELD_FEATURES, config.YIELD_FEATURES_PATH)
+    # 7. Save using ModelArtifacts utility
+    artifacts = ModelArtifacts()
+    summary = {
+        'model': best_name,
+        'r2': round(r2, 4),
+        'mae': round(mae, 1),
+        'rmse': round(rmse, 1)
+    }
+    
+    # Save all artifacts
+    artifacts.save_sklearn_model(
+        model=final_model,
+        scaler=scaler,
+        metadata=summary,
+        base_path=config.MODEL_DIR_YIELD,
+        label_encoders=label_encoders,
+        features=config.YIELD_FEATURES
+    )
+    
+    # Also save to summary.json for backward compatibility
     with open(config.YIELD_SUMMARY_PATH, 'w') as f:
-        json.dump({'model': best_name, 'r2': round(r2, 4),
-                   'mae': round(mae, 1), 'rmse': round(rmse, 1)}, f, indent=2)
+        json.dump(summary, f, indent=2)
+    
     print(f'  💾 Yield model saved → {config.YIELD_MODEL_PATH}')
     print(f'  ✅ Done! ({best_name}  R²={r2:.4f})')
 

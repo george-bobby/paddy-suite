@@ -6,7 +6,7 @@ This is the ONE file you run to get everything working.
 1. On FIRST run:
    - Downloads all datasets (only if not already downloaded)
    - Trains all 4 models (Yield, Disease, Irrigation, Fertilizer)
-   - Saves models to ./saved_models/
+   - Saves models to ./models/
 
 2. On SUBSEQUENT runs:
    - Skips downloading (datasets already on disk)
@@ -14,16 +14,30 @@ This is the ONE file you run to get everything working.
    - Immediately launches the Gradio web app
 
 To RETRAIN a specific model, delete its folder:
-   - Yield      → delete ./saved_models/yield/
-   - Disease    → delete ./saved_models/disease/
-   - Irrigation → delete ./saved_models/irrigation/
-   - Fertilizer → delete ./saved_models/fertilizer/
+   - Yield      → delete ./models/yield/
+   - Disease    → delete ./models/disease/
+   - Irrigation → delete ./models/irrigation/
+   - Fertilizer → delete ./models/fertilizer/
 
 Usage:
     python main.py
+    
+Environment Setup:
+    Requires KAGGLE_USERNAME, KAGGLE_KEY, and GEMINI_API_KEY environment variables.
+    Create a .env file from .env.example or export them manually.
 """
 
 import sys
+import os
+
+# Load environment variables from .env file if present
+try:
+    from load_env import load_env_file
+    load_env_file()
+except Exception as e:
+    print(f"⚠️  Could not load .env file: {e}")
+    print(f"   Continuing with system environment variables...")
+
 
 def main():
     print('='*65)
