@@ -46,3 +46,4 @@ logs/
 *.tmp
 *.temp
 .cache/
+.ruff_cache/
