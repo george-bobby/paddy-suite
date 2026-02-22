@@ -1,0 +1,16 @@
+{
+  "model_name": "Random Forest",
+  "test_accuracy": 0.8678,
+  "cv_accuracy_mean": 0.8586,
+  "cv_accuracy_std": 0.0284,
+  "f1_score": 0.8689,
+  "auc": 0.921,
+  "total_paddy_samples": 601,
+  "needs_scale": false,
+  "feature_columns": [
+    "CropDays",
+    "SoilMoisture",
+    "temperature",
+    "Humidity"
+  ]
+}

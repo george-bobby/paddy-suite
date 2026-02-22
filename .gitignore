@@ -13,7 +13,7 @@ datasets/disease
 
 
 # Model artifacts (generated during training)
-models/
+# models/
 
 
 # Compressed files
