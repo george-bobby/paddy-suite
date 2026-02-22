@@ -3,12 +3,23 @@ Disease Classification Service — Paddy disease identification from leaf images
 """
 import json
 import pickle
+import csv
+from pathlib import Path
+
+import numpy as np
 import torch
 import torchvision.transforms as T
 from torch.cuda.amp import autocast
 import timm
 from PIL import Image
+
 import config
+
+
+class _SimpleLabelEncoder:
+    """Minimal encoder-compatible container with a classes_ attribute."""
+    def __init__(self, classes):
+        self.classes_ = np.array(classes)
 
 
 class DiseaseService:
@@ -30,13 +41,8 @@ class DiseaseService:
     
     def __init__(self):
         """Load trained disease classification model and artifacts."""
-        # Load config
-        with open(config.DISEASE_CONFIG_PATH) as f:
-            self.config = json.load(f)
-        
-        # Load label encoder
-        with open(config.DISEASE_ENCODER_PATH, 'rb') as f:
-            self.label_encoder = pickle.load(f)
+        self.label_encoder = self._load_or_build_label_encoder()
+        self.config = self._load_or_build_config()
         
         # Load model
         self.model = timm.create_model(
@@ -56,6 +62,64 @@ class DiseaseService:
             T.ToTensor(),
             T.Normalize(config.IMG_MEAN, config.IMG_STD),
         ])
+
+    def _load_or_build_label_encoder(self):
+        """Load encoder artifact, or rebuild it from disease CSV if missing."""
+        enc_path = Path(config.DISEASE_ENCODER_PATH)
+        if enc_path.exists():
+            with enc_path.open('rb') as f:
+                return pickle.load(f)
+
+        classes = self._discover_classes()
+        le = _SimpleLabelEncoder(classes)
+        enc_path.parent.mkdir(parents=True, exist_ok=True)
+        with enc_path.open('wb') as f:
+            pickle.dump(le, f)
+        print(f'  ℹ️ Rebuilt missing disease artifact: {config.DISEASE_ENCODER_PATH}')
+        return le
+
+    def _load_or_build_config(self):
+        """Load model config artifact, or regenerate sensible default if missing."""
+        cfg_path = Path(config.DISEASE_CONFIG_PATH)
+        if cfg_path.exists():
+            with cfg_path.open() as f:
+                return json.load(f)
+
+        cfg = {
+            'model_name': 'efficientnet_b3',
+            'num_classes': len(self.label_encoder.classes_),
+            'img_size': config.IMG2,
+            'classes': list(self.label_encoder.classes_),
+            'val_accuracy': None,
+        }
+        cfg_path.parent.mkdir(parents=True, exist_ok=True)
+        with cfg_path.open('w') as f:
+            json.dump(cfg, f, indent=2)
+        print(f'  ℹ️ Rebuilt missing disease artifact: {config.DISEASE_CONFIG_PATH}')
+        return cfg
+
+    def _discover_classes(self):
+        """Discover disease classes from CSV first, then from train_images folders."""
+        csv_path = Path(config.DISEASE_CSV)
+        if csv_path.exists():
+            with csv_path.open(newline='') as f:
+                reader = csv.DictReader(f)
+                if 'label' in reader.fieldnames:
+                    labels = sorted({row['label'] for row in reader if row.get('label')})
+                    if labels:
+                        return labels
+
+        train_dir = Path(config.DISEASE_TRAIN_DIR)
+        if train_dir.exists():
+            labels = sorted([p.name for p in train_dir.iterdir() if p.is_dir()])
+            if labels:
+                return labels
+
+        raise FileNotFoundError(
+            f"Cannot rebuild disease classes: missing {config.DISEASE_CSV} and "
+            f"class folders under {config.DISEASE_TRAIN_DIR}. "
+            "Run 'python train_disease.py' (or 'python main.py') once."
+        )
     
     def predict(self, image: Image.Image, top_k: int = 3) -> dict:
         """

@@ -100,7 +100,7 @@ class YieldService:
     @staticmethod
     def get_tip(prediction: float, hectares: float) -> str:
         """Get simple rule-based tip based on predicted yield."""
-        yield_per_ha = prediction / max(float(hectares), 0.1)
+        prediction / max(float(hectares), 0.1)
         
         if prediction < 20000:
             return '⚠️ Low yield. Adjust fertilizer/pesticide.'

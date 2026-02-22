@@ -27,8 +27,6 @@ Environment Setup:
     Create a .env file from .env.example or export them manually.
 """
 
-import sys
-import os
 
 # Load environment variables from .env file if present
 try:
@@ -36,7 +34,7 @@ try:
     load_env_file()
 except Exception as e:
     print(f"⚠️  Could not load .env file: {e}")
-    print(f"   Continuing with system environment variables...")
+    print("   Continuing with system environment variables...")
 
 
 def main():

@@ -8,23 +8,13 @@ __pycache__/
 dist/
 build/
 
-# Environment variables & secrets
-.env
-.env.local
-*.key
-*.pem
-
 # Datasets (large, downloaded from Kaggle)
-datasets/
-*.csv
-!requirements*.csv
+datasets/disease
+
 
 # Model artifacts (generated during training)
 models/
-*.pkl
-*.pth
-*.h5
-*.onnx
+
 
 # Compressed files
 *.zip

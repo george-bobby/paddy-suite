@@ -3,7 +3,7 @@ train_disease.py — Module 2: Paddy Disease Classification
 EfficientNet-B3 fine-tuned in 2 stages on the Kaggle paddy-disease-classification dataset.
 
 Run:  python train_disease.py
-Skip: Automatically skipped if models/disease/best.pth already exists.
+Skip: Automatically skipped if all disease artifacts already exist.
 """
 
 import os
@@ -24,7 +24,6 @@ import timm
 import pandas as pd
 from sklearn.preprocessing import LabelEncoder
 from sklearn.model_selection import train_test_split
-from sklearn.metrics import classification_report, confusion_matrix
 from pathlib import Path
 
 import config
@@ -161,7 +160,7 @@ def _download_dataset():
     
     # If data already extracted, skip
     if train_csv.exists() and (data_dir / 'train_images').exists():
-        print(f'  ✅ Disease dataset already exists.')
+        print('  ✅ Disease dataset already exists.')
         return
     
     # If zip exists but not extracted, extract it
@@ -212,8 +211,41 @@ def train():
     """Full disease training pipeline. Skipped if model already saved."""
     os.makedirs(config.MODEL_DIR_DISEASE, exist_ok=True)
 
-    if os.path.exists(config.DISEASE_MODEL_PATH):
+    required_artifacts = [
+        config.DISEASE_MODEL_PATH,
+        config.DISEASE_ENCODER_PATH,
+        config.DISEASE_CONFIG_PATH,
+    ]
+    missing_artifacts = [p for p in required_artifacts if not os.path.exists(p)]
+
+    if not missing_artifacts:
         print('⏭️  Disease model already trained — skipping. Delete models/disease/ to retrain.')
+        return
+
+    if os.path.exists(config.DISEASE_MODEL_PATH):
+        print(f'  ℹ️ Found model weights but missing artifacts: {missing_artifacts}')
+        print('  🔧 Rebuilding missing disease artifacts from dataset (no retraining)...')
+        _download_dataset()
+
+        df = pd.read_csv(config.DISEASE_CSV)
+        le = LabelEncoder()
+        le.fit(df['label'])
+        num_classes = len(le.classes_)
+
+        with open(config.DISEASE_ENCODER_PATH, 'wb') as f:
+            pickle.dump(le, f)
+
+        disease_cfg = {
+            'model_name': 'efficientnet_b3',
+            'num_classes': num_classes,
+            'img_size': config.IMG2,
+            'classes': list(le.classes_),
+            'val_accuracy': None,
+        }
+        with open(config.DISEASE_CONFIG_PATH, 'w') as f:
+            json.dump(disease_cfg, f, indent=2)
+
+        print('  ✅ Missing disease artifacts rebuilt. Skipping retraining.')
         return
 
     print('\n' + '='*60)

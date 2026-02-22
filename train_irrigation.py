@@ -20,8 +20,7 @@ from sklearn.svm import SVC
 from sklearn.preprocessing import StandardScaler
 from sklearn.model_selection import (train_test_split, StratifiedKFold,
                                       cross_val_score, GridSearchCV)
-from sklearn.metrics import (accuracy_score, f1_score, roc_auc_score,
-                               classification_report)
+from sklearn.metrics import (accuracy_score, f1_score, roc_auc_score)
 import xgboost as xgb
 try:
     import lightgbm as lgb
@@ -79,7 +78,7 @@ def _generate_synthetic(n_samples=600, random_state=42):
 
 def _download_dataset():
     if Path(config.IRR_CSV).exists():
-        print(f'  ✅ Irrigation dataset already exists.')
+        print('  ✅ Irrigation dataset already exists.')
         return
     print('  📥 Downloading irrigation dataset...')
     from kaggle.api.kaggle_api_extended import KaggleApi

@@ -7,7 +7,6 @@ Skip: Automatically skipped if models/fertilizer/model.pkl already exists.
 """
 
 import os
-import json
 import warnings
 import numpy as np
 import pandas as pd
@@ -18,7 +17,7 @@ from sklearn.linear_model import LogisticRegression
 from sklearn.preprocessing import LabelEncoder, RobustScaler
 from sklearn.model_selection import (train_test_split, StratifiedKFold,
                                       cross_val_score, GridSearchCV)
-from sklearn.metrics import accuracy_score, f1_score, classification_report
+from sklearn.metrics import accuracy_score, f1_score
 
 import config
 
@@ -30,7 +29,7 @@ warnings.filterwarnings('ignore')
 def _download_dataset():
     data_dir = Path(config.FERT_DATA_DIR)
     if list(data_dir.glob('*.csv')):
-        print(f'  ✅ Fertilizer dataset already exists.')
+        print('  ✅ Fertilizer dataset already exists.')
         return
     print('  📥 Downloading fertilizer dataset...')
     import kaggle

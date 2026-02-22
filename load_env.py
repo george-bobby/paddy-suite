@@ -12,8 +12,8 @@ def load_env_file(env_path='.env'):
     
     if not env_file.exists():
         print(f"⚠️  No .env file found at {env_file.absolute()}")
-        print(f"   Please copy .env.example to .env and fill in your credentials")
-        print(f"   Command: cp .env.example .env")
+        print("   Please copy .env.example to .env and fill in your credentials")
+        print("   Command: cp .env.example .env")
         return False
     
     loaded_count = 0
@@ -45,8 +45,8 @@ def load_env_file(env_path='.env'):
         print(f"✅ Loaded {loaded_count} environment variables from .env")
         return True
     else:
-        print(f"⚠️  No valid credentials found in .env file")
-        print(f"   Please edit .env and replace placeholder values with your actual credentials")
+        print("⚠️  No valid credentials found in .env file")
+        print("   Please edit .env and replace placeholder values with your actual credentials")
         return False
 
 

@@ -11,7 +11,6 @@ import json
 import warnings
 import numpy as np
 import pandas as pd
-import joblib
 import optuna
 import xgboost as xgb
 try:
@@ -23,7 +22,6 @@ from sklearn.linear_model import Ridge
 from sklearn.preprocessing import StandardScaler, LabelEncoder
 from sklearn.model_selection import train_test_split, KFold, cross_val_score
 from sklearn.metrics import r2_score, mean_absolute_error, mean_squared_error
-from pathlib import Path
 
 import config
 from src.data import DatasetManager
