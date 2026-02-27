@@ -7,7 +7,10 @@ import random
 import platform
 import numpy as np
 import torch
+from dotenv import load_dotenv
 
+# Load .env file before any os.environ reads
+load_dotenv()
 # ── Seeds ────────────────────────────────────────────────────────────────────
 RANDOM_STATE = 42
 SEED         = 42
